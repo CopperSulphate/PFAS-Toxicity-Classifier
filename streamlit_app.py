@@ -18,29 +18,29 @@ st.set_page_config(
 
 # Define the Model Structure and Files
 MODELS = {
-    "AID-1030": {
+    "AID- 1030": {
         "title": "ALDH1A1 Inhibition",
         "mech": "Gradient Boosting",
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "AID-1030.xlsx", # File path for descriptor loading
+        "file": "AID- 1030.xlsx", # File path for descriptor loading
     },
-    "AID-504444": {
+    "AID- 504444": {
         "title": "Pulmonary Fibrosis",
         "mech": "Random Forest",
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "AID-504444.xlsx", # File path for descriptor loading
+        "file": "AID- 504444.xlsx", # File path for descriptor loading
     },
-    "AID-588855": {
+    "AID- 588855": {
         "title": "Lung Cancer & Fibrosis",
         "mech": "Support Vector Machine",
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "AID-588855.xlsx", # File path for descriptor loading
+        "file": "AID- 588855.xlsx", # File path for descriptor loading
     },
 }
 
