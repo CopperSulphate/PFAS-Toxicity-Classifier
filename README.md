@@ -1,4 +1,4 @@
-# 📦 Streamlit App Starter Kit 
+# 📦 PFAS Toxicity Classification
 ```
 ⬆️ (Replace above with your app's name)
 ```
