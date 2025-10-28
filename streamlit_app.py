@@ -25,7 +25,7 @@ MODELS = {
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "data/AID-1030.xlsx", # <-- UPDATED PATH
+        "file": "data/AID- 1030.xlsx", # <-- UPDATED PATH
     },
     "AID-504444": {
         "title": "Pulmonary Fibrosis",
@@ -33,7 +33,7 @@ MODELS = {
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "data/AID-504444.xlsx", # <-- UPDATED PATH
+        "file": "data/AID- 504444.xlsx", # <-- UPDATED PATH
     },
     "AID-588855": {
         "title": "Lung Cancer & Fibrosis",
@@ -41,7 +41,7 @@ MODELS = {
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "data/AID-588855.xlsx", # <-- UPDATED PATH
+        "file": "data/AID- 588855.xlsx", # <-- UPDATED PATH
     },
 }
 
