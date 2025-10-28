@@ -1,4 +1,4 @@
-# 📦 PFAS Toxicity Classification
+# 🍀 PFAS Toxicity Classification
 ```
 ⬆️ (Replace above with your app's name)
 ```
