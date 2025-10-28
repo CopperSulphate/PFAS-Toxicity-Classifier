@@ -1,8 +1,4 @@
 import streamlit as st
-
-
-
-import streamlit as st
 import pandas as pd
 import time
 import base64
@@ -20,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Define the Model Structure and Descriptors
+# Define the Model Structure and Files
 MODELS = {
     "AID-1030": {
         "title": "ALDH1A1 Inhibition",
@@ -28,8 +24,7 @@ MODELS = {
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "features": 27,
-        "descriptors": [f"Descriptor_{i}" for i in range(1, 28)],
+        "file": "AID-1030.xlsx", # File path for descriptor loading
     },
     "AID-504444": {
         "title": "Pulmonary Fibrosis",
@@ -37,8 +32,7 @@ MODELS = {
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "features": 26,
-        "descriptors": [f"Descriptor_{i}" for i in range(1, 27)],
+        "file": "AID-504444.xlsx", # File path for descriptor loading
     },
     "AID-588855": {
         "title": "Lung Cancer & Fibrosis",
@@ -46,13 +40,57 @@ MODELS = {
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "features": 24,
-        "descriptors": [f"Descriptor_{i}" for i in range(1, 25)],
+        "file": "AID-588855.xlsx", # File path for descriptor loading
     },
 }
 
-# Define the Template Data
-TEMPLATE_COLUMNS = ["SMILES"] + MODELS["AID-1030"]["descriptors"] 
+# --- Dynamic Descriptor Loading Function ---
+
+@st.cache_data(show_spinner="Loading model descriptor definitions...")
+def load_model_descriptors(model_key):
+    """
+    Reads the descriptor columns from the corresponding Excel file.
+    Assumes: 1st column is Serial, Last column is Endpoint, columns in between are Descriptors.
+    """
+    file_path = MODELS[model_key]["file"]
+    try:
+        # We need openpyxl installed for pandas to read .xlsx
+        df = pd.read_excel(file_path)
+        
+        all_cols = df.columns.tolist()
+        
+        # Check for minimum expected columns (Serial, at least one Descriptor, Endpoint)
+        if len(all_cols) < 3: 
+            st.error(f"Error: Model file '{file_path}' has only {len(all_cols)} columns. Expected at least 3 (Serial, Descriptor(s), Endpoint).")
+            return [], 0
+            
+        # Descriptors are all columns from index 1 up to the second-to-last column
+        descriptors = all_cols[1:-1]
+        
+        # Ensure 'SMILES' is not accidentally listed as a required descriptor if present in the model file
+        descriptors = [col for col in descriptors if col.upper() != "SMILES"]
+
+        return descriptors, len(descriptors)
+        
+    except FileNotFoundError:
+        st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Please ensure it's in the same directory as this script.")
+        return [], 0
+    except Exception as e:
+        st.error(f"FATAL ERROR: Could not load descriptors from '{file_path}'. Check file format. Error: {e}")
+        return [], 0
+
+# --- Update MODELS dictionary with dynamic values ---
+for key in MODELS:
+    descriptors, features_count = load_model_descriptors(key)
+    MODELS[key]["descriptors"] = descriptors
+    MODELS[key]["features"] = features_count
+    # Remove the file reference from cache/state if desired, but keeping it is fine.
+
+
+# Define the Template Data (now using dynamically loaded descriptors)
+first_model_key = list(MODELS.keys())[0]
+TEMPLATE_COLUMNS = ["SMILES"] + MODELS[first_model_key]["descriptors"] 
+
 TEMPLATE_DATA = {
     "SMILES": [
         "C(F)(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(=O)O", # PFOA example
@@ -70,6 +108,7 @@ TEMPLATE_DF = pd.DataFrame(TEMPLATE_DATA)
 # Initialize Session State
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = list(MODELS.keys())[0] # Default to the first one
+# ... (rest of session state initialization)
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
 if "input_data" not in st.session_state:
@@ -311,10 +350,13 @@ def run_prediction_model(data_df, model_key):
     """Mocks the model prediction, returning dummy results."""
     time.sleep(2) # Simulate model computation time
     
-    # Ensure all required columns are present (Validation step)
-    required_cols = MODELS[model_key]["descriptors"]
-    if not all(col in data_df.columns for col in required_cols):
-        raise ValueError("Input data is missing required molecular descriptor columns.")
+    # Ensure all required descriptor columns are present (Validation step)
+    required_descriptor_cols = MODELS[model_key]["descriptors"]
+    
+    # Check for missing descriptors
+    missing_descriptors = [col for col in required_descriptor_cols if col not in data_df.columns]
+    if missing_descriptors:
+        raise ValueError(f"Input data is missing required molecular descriptor columns: {', '.join(missing_descriptors)}")
 
     # Create dummy prediction results
     compound_count = len(data_df)
@@ -341,8 +383,8 @@ def download_template():
 # Data Validation Function
 def validate_data(df, model_key):
     """Performs validation checks on the uploaded DataFrame."""
-    required_cols = MODELS[model_key]["descriptors"] + ["SMILES"]
-    missing_cols = [col for col in required_cols if col not in df.columns]
+    required_cols_for_input = MODELS[model_key]["descriptors"] + ["SMILES"]
+    missing_cols = [col for col in required_cols_for_input if col not in df.columns]
     
     validation_status = {
         "is_valid": True,
