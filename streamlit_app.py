@@ -526,4 +526,3 @@ def render_descriptor_display():
     with st.expander(f"**Required Descriptors for {model['title']} ({model['features']} total)**", expanded=False):
         st.markdown(f"""
             <p style="margin-bottom: 24px;">Your input dataset must include the following **{m
-    
