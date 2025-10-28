@@ -5,6 +5,7 @@ import base64
 import random
 import io
 import numpy as np
+import os  # <-- NEW: Import os for path checking
 
 # --- 1. CONFIGURATION AND INITIAL SETUP ---
 
@@ -24,7 +25,7 @@ MODELS = {
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "AID-1030.xlsx", # File path for descriptor loading
+        "file": "data/AID-1030.xlsx", # <-- UPDATED PATH
     },
     "AID-504444": {
         "title": "Pulmonary Fibrosis",
@@ -32,7 +33,7 @@ MODELS = {
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "AID-504444.xlsx", # File path for descriptor loading
+        "file": "data/AID-504444.xlsx", # <-- UPDATED PATH
     },
     "AID-588855": {
         "title": "Lung Cancer & Fibrosis",
@@ -40,7 +41,7 @@ MODELS = {
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "AID-588855.xlsx", # File path for descriptor loading
+        "file": "data/AID-588855.xlsx", # <-- UPDATED PATH
     },
 }
 
@@ -53,8 +54,12 @@ def load_model_descriptors(model_key):
     Assumption: 1st column (index 0) is Serial, Last column is Endpoint, columns in between (index 1 to -2) are Descriptors.
     """
     file_path = MODELS[model_key]["file"]
-    # For Streamlit Cloud deployment, always check if the file exists and handle errors gracefully
     try:
+        # Check if file exists first (robustness check)
+        if not os.path.exists(file_path):
+             st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Check that the file is in the 'data/' folder.")
+             return [], 0
+             
         df = pd.read_excel(file_path)
         
         all_cols = df.columns.tolist()
@@ -67,16 +72,13 @@ def load_model_descriptors(model_key):
         # Descriptors are all columns between index 0 and the last index (-1)
         descriptors = all_cols[1:-1]
         
-        # Clean descriptor names (if needed) and ensure they are ready for validation
+        # Clean descriptor names and ensure they are ready for validation
         descriptors = [col.strip() for col in descriptors if col and col.upper() != "SMILES"]
 
         return descriptors, len(descriptors)
         
-    except FileNotFoundError:
-        st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Check repository files.")
-        return [], 0
     except Exception as e:
-        st.error(f"FATAL ERROR: Could not load descriptors from '{file_path}'. Error: {e}")
+        st.error(f"FATAL ERROR: Could not read descriptors from '{file_path}'. Error: {e}")
         return [], 0
 
 # --- Update MODELS dictionary with dynamic values ---
@@ -85,14 +87,13 @@ for key in MODELS:
     MODELS[key]["descriptors"] = descriptors
     MODELS[key]["features"] = features_count
     
-
 # Define the Template Data (now using dynamically loaded descriptors)
 first_model_key = list(MODELS.keys())[0]
 TEMPLATE_COLUMNS = ["SMILES"] + MODELS[first_model_key]["descriptors"] 
 
 # Check if descriptors were loaded successfully before populating template
 if not MODELS[first_model_key]["descriptors"]:
-    st.warning("Using placeholder descriptors for the template due to file loading error.")
+    # Fallback to generic template if file loading failed
     TEMPLATE_COLUMNS = ["SMILES", "Placeholder_1", "Placeholder_2"] 
 
 TEMPLATE_DATA = {
@@ -516,7 +517,7 @@ def render_descriptor_display():
     st.markdown("---")
     st.markdown("## Step 2: Review Required Descriptors")
     
-    with st.expander(f"**Required Descriptors for {model['title']} ({model['features']} total)**", expanded=True): # Expanded=True to clearly show the change
+    with st.expander(f"**Required Descriptors for {model['title']} ({model['features']} total)**", expanded=False):
         st.markdown(f"""
             <p style="margin-bottom: 24px;">Your input dataset must include the following **{model['features']}** molecular descriptor columns and a **SMILES** column for compound identification.</p>
         """, unsafe_allow_html=True)
