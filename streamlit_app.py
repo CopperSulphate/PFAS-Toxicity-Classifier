@@ -82,7 +82,6 @@ if "show_hero" not in st.session_state:
 
 # --- 2. CUSTOM APPLE-INSPIRED CSS & UI ELEMENTS ---
 
-# Custom CSS for Apple Aesthetic
 def apply_apple_style():
     """Applies custom CSS for an Apple-inspired look and feel."""
     st.markdown("""
@@ -307,7 +306,6 @@ def get_table_download_link(df, filename, text):
 
 # --- 3. APPLICATION LOGIC FUNCTIONS ---
 
-# Mock Prediction Function (simulates model prediction)
 @st.cache_data(show_spinner="Running QSTR Models on Data...")
 def run_prediction_model(data_df, model_key):
     """Mocks the model prediction, returning dummy results."""
@@ -316,7 +314,6 @@ def run_prediction_model(data_df, model_key):
     # Ensure all required columns are present (Validation step)
     required_cols = MODELS[model_key]["descriptors"]
     if not all(col in data_df.columns for col in required_cols):
-        # This error is usually caught earlier but serves as a final check
         raise ValueError("Input data is missing required molecular descriptor columns.")
 
     # Create dummy prediction results
@@ -329,10 +326,9 @@ def run_prediction_model(data_df, model_key):
     
     return results_df
 
-# Template Download Function
+# Template Download Function (using native Streamlit button)
 def download_template():
     """Generates the example input template for download."""
-    # Using st.download_button for a native Streamlit button feel
     return st.download_button(
         label="📄 Download Input Template (CSV)",
         data=TEMPLATE_DF.to_csv(index=False).encode('utf-8'),
@@ -355,36 +351,35 @@ def validate_data(df, model_key):
         "missing_cols": missing_cols,
     }
 
+    if df.empty:
+        validation_status["is_valid"] = False
+        validation_status["errors"].append("❌ Critical: Uploaded file is empty.")
+    
     if missing_cols:
         validation_status["is_valid"] = False
         validation_status["errors"].append(
             f"❌ Missing Required Columns: The following {len(missing_cols)} columns are missing: {', '.join(missing_cols)}."
         )
 
-    if 'SMILES' not in df.columns:
+    if 'SMILES' not in df.columns and not df.empty:
         validation_status["is_valid"] = False
         validation_status["errors"].append("❌ Critical: 'SMILES' column is required.")
         
-    # Check for empty data
-    if df.empty:
-        validation_status["is_valid"] = False
-        validation_status["errors"].append("❌ Critical: Uploaded file is empty.")
-
-    # Check for non-numeric descriptor columns (simple check)
+    # Check for non-numeric descriptor columns (simple check and coercion attempt)
     numeric_cols = MODELS[model_key]["descriptors"]
     for col in numeric_cols:
-        if col in df.columns and not pd.api.types.is_numeric_dtype(df[col]):
-             # Attempt to coerce, issue a warning if coercion is needed
+        if col in df.columns:
              try:
+                 # Attempt to coerce the column to numeric, ignoring non-numeric entries
                  df[col] = pd.to_numeric(df[col], errors='coerce')
                  if df[col].isnull().any():
                      validation_status["warnings"].append(
                          f"⚠️ Warning: Non-numeric data found in '{col}'. Null values introduced upon conversion."
                      )
-             except:
+             except Exception:
                 validation_status["is_valid"] = False
                 validation_status["errors"].append(
-                    f"❌ Column '{col}' contains non-numeric data that could not be converted."
+                    f"❌ Column '{col}' contains data that could not be converted to numeric."
                 )
                 
     # Update DataFrame in session state if valid
@@ -404,6 +399,7 @@ def select_model_card(key):
     st.session_state.prediction_results = None
     st.session_state.input_data = None
     st.session_state.uploaded_file = None
+    st.toast(f"Model set to {key}", icon="✅")
 
 # Component 1: Hero Section
 def render_hero_section():
@@ -435,8 +431,9 @@ def render_model_selection():
         card_class = "model-card selected" if is_selected else "model-card"
         
         with cols[i]:
+            # The HTML div acts as the target for the click, then triggers the hidden button
             st.markdown(f"""
-            <div class="{card_class}" onclick="document.getElementById('{key}_button').click();">
+            <div class="{card_class}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <h3 style="margin: 0; font-size: 22px; color: {model['color']};">{key}</h3>
                     {render_icon(model['icon'], model['color'])}
@@ -471,19 +468,20 @@ def render_descriptor_display():
     
     with st.expander(f"**Required Descriptors for {model['title']} ({model['features']} total)**", expanded=False):
         st.markdown(f"""
-            <p style="margin-bottom: 24px;">Your input dataset must include the following **{model['features']}** molecular descriptor columns for the **{model['mech']}** model.</p>
+            <p style="margin-bottom: 24px;">Your input dataset must include the following **{model['features']}** molecular descriptor columns and a **SMILES** column for compound identification.</p>
         """, unsafe_allow_html=True)
         
         # Descriptor Pills
-        descriptor_html = "".join([f'<span class="descriptor-pill">{d}</span>' for d in model['descriptors']])
+        descriptors = ["SMILES (Required)"] + model['descriptors']
+        descriptor_html = "".join([f'<span class="descriptor-pill">{d}</span>' for d in descriptors])
         st.markdown(f'<div style="max-height: 250px; overflow-y: auto; padding-right: 15px; margin-bottom: 20px;">{descriptor_html}</div>', unsafe_allow_html=True)
 
         # Buttons
         col_c, col_d, _ = st.columns([1, 1, 4])
         
-        # Copy to Clipboard Button (Mock implementation for Streamlit)
         with col_c:
-            st.button("📋 Copy List", help="A non-functional placeholder for 'copy to clipboard' functionality.", key="copy_list_btn", type="secondary")
+            # Placeholder for Copy List
+            st.button("📋 Copy List", help="This function is a placeholder for 'copy to clipboard'.", key="copy_list_btn", type="secondary")
         with col_d:
             download_template()
             
@@ -493,44 +491,61 @@ def render_upload_and_preview():
     st.markdown("---")
     st.markdown("## Step 3: Upload Your Data")
     
+    # Custom File Uploader rendering (using custom CSS class)
+    st.markdown("""<div class="stFileUploader">
+        <div style="color: #6E6E73; font-size: 18px;">
+        <p style="margin-bottom: 16px;">
+            <span style="font-size: 48px; color: #007AFF;">☁️</span><br>
+            Drag and drop your file here<br>
+            or click to browse
+        </p>
+        </div>
+    </div>""", unsafe_allow_html=True)
+    
+    # We use the native file uploader hidden within the custom markdown block
     uploaded_file = st.file_uploader(
-        "Drag and drop your file here or click to browse",
+        "Upload",
         type=['csv', 'xlsx', 'txt'],
         accept_multiple_files=False,
-        help="Supported formats: CSV, Excel (.xlsx), Text (.txt). Maximum size: 200MB.",
-        key="file_uploader"
+        key="file_uploader",
+        label_visibility="collapsed" # Hide the default Streamlit label
     )
 
+    # File processing and validation logic
     df = None
-    if uploaded_file is not None:
-        try:
-            if uploaded_file.name.endswith('.csv') or uploaded_file.name.endswith('.txt'):
-                df = pd.read_csv(uploaded_file)
-            elif uploaded_file.name.endswith('.xlsx'):
-                df = pd.read_excel(uploaded_file)
-            
-            # Run Validation
-            validation_status = validate_data(df, st.session_state.selected_model)
-            
-            if validation_status["errors"]:
-                st.error("❌ Data Validation Failed. Please fix the following errors:")
-                for error in validation_status["errors"]:
-                    st.markdown(f'<p style="color: #FF3B30; margin-left: 15px;">{error}</p>', unsafe_allow_html=True)
-                st.session_state.input_data = None
-                st.session_state.uploaded_file = None
-            else:
-                st.session_state.input_data = df
-                st.session_state.uploaded_file = uploaded_file
-                if validation_status["warnings"]:
-                     st.warning("⚠️ Data Validation Warnings:")
-                     for warning in validation_status["warnings"]:
-                         st.markdown(f'<p style="color: #FF9500; margin-left: 15px;">{warning}</p>', unsafe_allow_html=True)
-                st.success("✅ File successfully uploaded and validated!")
+    if uploaded_file != st.session_state.uploaded_file:
+        st.session_state.uploaded_file = uploaded_file
+        st.session_state.prediction_results = None # Clear results on new upload
+        if uploaded_file is not None:
+            try:
+                # Read file
+                if uploaded_file.name.endswith('.csv') or uploaded_file.name.endswith('.txt'):
+                    df = pd.read_csv(uploaded_file)
+                elif uploaded_file.name.endswith('.xlsx'):
+                    df = pd.read_excel(uploaded_file)
                 
-        except Exception as e:
-            st.error(f"❌ An error occurred during file reading: {e}")
+                # Run Validation
+                validation_status = validate_data(df, st.session_state.selected_model)
+                
+                if validation_status["errors"]:
+                    st.error("❌ Data Validation Failed. Please fix the following errors:")
+                    for error in validation_status["errors"]:
+                        st.markdown(f'<p style="color: #FF3B30; margin-left: 15px;">{error}</p>', unsafe_allow_html=True)
+                    st.session_state.input_data = None
+                else:
+                    st.session_state.input_data = df
+                    st.success("✅ File successfully uploaded and validated!")
+                    if validation_status["warnings"]:
+                         st.warning("⚠️ Data Validation Warnings:")
+                         for warning in validation_status["warnings"]:
+                             st.markdown(f'<p style="color: #FF9500; margin-left: 15px;">{warning}</p>', unsafe_allow_html=True)
+                    
+            except Exception as e:
+                st.error(f"❌ An error occurred during file reading or processing: {e}")
+                st.session_state.input_data = None
+        else:
             st.session_state.input_data = None
-            st.session_state.uploaded_file = None
+
 
     # Data Preview
     if st.session_state.input_data is not None:
@@ -553,14 +568,12 @@ def render_prediction_button():
     st.markdown("---")
     st.markdown("## Step 4: Generate Predictions")
 
+    predict_disabled = st.session_state.input_data is None or st.session_state.prediction_results is not None
+
     if st.session_state.input_data is None:
         st.info("Upload and validate your data in Step 3 to enable prediction.")
-        predict_disabled = True
     elif st.session_state.prediction_results is not None:
-        st.info("Predictions are already available below.")
-        predict_disabled = True
-    else:
-        predict_disabled = False
+        st.info("Predictions are already available below. Clear results or upload a new file to re-run.")
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -604,6 +617,7 @@ def render_results_display():
             delta_color="off"
         )
     with col_b:
+        # Custom Metric Card for Active (1)
         st.markdown(f"""
         <div data-testid="stMetric" style="border-left: 4px solid #34C759;">
             <div style="font-size: 14px; color: #6E6E73; font-weight: 500;">Active (1)</div>
@@ -612,6 +626,7 @@ def render_results_display():
         </div>
         """, unsafe_allow_html=True)
     with col_c:
+        # Custom Metric Card for Inactive (0)
         st.markdown(f"""
         <div data-testid="stMetric" style="border-left: 4px solid #FF3B30;">
             <div style="font-size: 14px; color: #6E6E73; font-weight: 500;">Inactive (0)</div>
@@ -631,14 +646,21 @@ def render_results_display():
         icon = '●' if val == 'Active' else '○'
         return f'<span style="color:{color}; font-weight: 600;">{icon} {val}</span>'
 
+    # Filter columns for cleaner display: #, SMILES, Prediction
     display_df = df_results[['SMILES', 'Prediction_Label']].copy()
     display_df.rename(columns={'Prediction_Label': 'Prediction'}, inplace=True)
     
-    # Index for display
+    # Add Index for display
     display_df.insert(0, '#', range(1, 1 + len(display_df)))
 
-    # Apply custom HTML formatting
-    st.markdown(display_df.style.format({'Prediction': format_prediction_label}).to_html(index=False), unsafe_allow_html=True)
+    # Apply custom HTML formatting for the prediction column
+    # Note: Streamlit's native st.dataframe is typically better but for a custom look, we use HTML rendering here.
+    st.markdown(
+        display_df.head(20).style.format({'Prediction': format_prediction_label}).to_html(index=False), 
+        unsafe_allow_html=True
+    )
+    if len(display_df) > 20:
+        st.markdown(f"<p style='text-align: center; color: #6E6E73; margin-top: 15px;'>... showing 20 of {len(display_df)} results.</p>", unsafe_allow_html=True)
 
 # Component 8: Download Section
 def render_download_section():
@@ -655,7 +677,7 @@ def render_download_section():
     # Filename based on selected model
     filename_base = f"PFAS_QSTR_{st.session_state.selected_model}_Results"
     
-    # Create download links using the helper function
+    # Create download links using the helper function (uses HTML buttons)
     excel_link = get_table_download_link(df_results, f"{filename_base}.xlsx", "📊 Excel (.xlsx)")
     csv_link = get_table_download_link(df_results, f"{filename_base}.csv", "📄 CSV (.csv)")
     txt_link = get_table_download_link(df_results, f"{filename_base}.txt", "📝 TXT (Tab-Delimited)")
@@ -674,7 +696,7 @@ def render_download_section():
 def main():
     apply_apple_style() # Apply the custom CSS at the very start
     
-    # Header (Minimal Logo/Title)
+    # Fixed Header/Logo Section
     st.markdown(
         f'<div style="display: flex; align-items: center; padding-bottom: 12px;">'
         f'<h3 style="color: #007AFF; margin-right: 10px; margin-top: 0; font-weight: 700;">🧬</h3>'
@@ -683,10 +705,12 @@ def main():
         unsafe_allow_html=True
     )
     
+    # Conditional Hero Section
     if st.session_state.show_hero:
         render_hero_section()
     else:
-        # Main content container for padding and max-width (already handled by .stApp CSS)
+        # Main Steps
+        st.markdown("<div id='main_content'>", unsafe_allow_html=True) # Anchor for smooth scrolling (not fully implemented in native Streamlit, but good practice)
         
         # Step 1
         render_model_selection()
@@ -694,7 +718,7 @@ def main():
         # Step 2
         render_descriptor_display()
         
-        # Step 3
+        # Step 3 & Data Preview
         render_upload_and_preview()
         
         # Step 4 (Prediction)
@@ -705,6 +729,8 @@ def main():
         
         # Step 6 (Download)
         render_download_section()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
