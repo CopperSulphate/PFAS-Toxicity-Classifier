@@ -700,7 +700,7 @@ def main():
     st.markdown(
         f'<div style="display: flex; align-items: center; padding-top: 18px;">'
         f'<h3 style="color: #007AFF; margin-right: 10px; margin-top: 0; font-weight: 700;">🧬</h3>'
-        f'<h3 style="margin: 0; font-weight: 500;">PFAS QSTR Platform</h3>'
+        f'<h3 style="margin: 0; font-weight: 500;">PFAS Toxicity Classifier</h3>'
         f'</div>', 
         unsafe_allow_html=True
     )
