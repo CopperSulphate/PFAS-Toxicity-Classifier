@@ -46,37 +46,37 @@ MODELS = {
 
 # --- Dynamic Descriptor Loading Function ---
 
-@st.cache_data(show_spinner="Loading model descriptor definitions...")
+@st.cache_data(show_spinner="Loading model descriptor definitions from files...")
 def load_model_descriptors(model_key):
     """
-    Reads the descriptor columns from the corresponding Excel file.
-    Assumes: 1st column is Serial, Last column is Endpoint, columns in between are Descriptors.
+    Reads descriptor columns from the corresponding Excel file.
+    Assumption: 1st column (index 0) is Serial, Last column is Endpoint, columns in between (index 1 to -2) are Descriptors.
     """
     file_path = MODELS[model_key]["file"]
+    # For Streamlit Cloud deployment, always check if the file exists and handle errors gracefully
     try:
-        # We need openpyxl installed for pandas to read .xlsx
         df = pd.read_excel(file_path)
         
         all_cols = df.columns.tolist()
         
-        # Check for minimum expected columns (Serial, at least one Descriptor, Endpoint)
+        # We need at least 3 columns: Serial, Descriptor, Endpoint
         if len(all_cols) < 3: 
-            st.error(f"Error: Model file '{file_path}' has only {len(all_cols)} columns. Expected at least 3 (Serial, Descriptor(s), Endpoint).")
+            st.warning(f"Warning: Model file '{file_path}' has insufficient columns. Descriptors list may be empty.")
             return [], 0
             
-        # Descriptors are all columns from index 1 up to the second-to-last column
+        # Descriptors are all columns between index 0 and the last index (-1)
         descriptors = all_cols[1:-1]
         
-        # Ensure 'SMILES' is not accidentally listed as a required descriptor if present in the model file
-        descriptors = [col for col in descriptors if col.upper() != "SMILES"]
+        # Clean descriptor names (if needed) and ensure they are ready for validation
+        descriptors = [col.strip() for col in descriptors if col and col.upper() != "SMILES"]
 
         return descriptors, len(descriptors)
         
     except FileNotFoundError:
-        st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Please ensure it's in the same directory as this script.")
+        st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Check repository files.")
         return [], 0
     except Exception as e:
-        st.error(f"FATAL ERROR: Could not load descriptors from '{file_path}'. Check file format. Error: {e}")
+        st.error(f"FATAL ERROR: Could not load descriptors from '{file_path}'. Error: {e}")
         return [], 0
 
 # --- Update MODELS dictionary with dynamic values ---
@@ -84,12 +84,16 @@ for key in MODELS:
     descriptors, features_count = load_model_descriptors(key)
     MODELS[key]["descriptors"] = descriptors
     MODELS[key]["features"] = features_count
-    # Remove the file reference from cache/state if desired, but keeping it is fine.
-
+    
 
 # Define the Template Data (now using dynamically loaded descriptors)
 first_model_key = list(MODELS.keys())[0]
 TEMPLATE_COLUMNS = ["SMILES"] + MODELS[first_model_key]["descriptors"] 
+
+# Check if descriptors were loaded successfully before populating template
+if not MODELS[first_model_key]["descriptors"]:
+    st.warning("Using placeholder descriptors for the template due to file loading error.")
+    TEMPLATE_COLUMNS = ["SMILES", "Placeholder_1", "Placeholder_2"] 
 
 TEMPLATE_DATA = {
     "SMILES": [
@@ -512,12 +516,12 @@ def render_descriptor_display():
     st.markdown("---")
     st.markdown("## Step 2: Review Required Descriptors")
     
-    with st.expander(f"**Required Descriptors for {model['title']} ({model['features']} total)**", expanded=False):
+    with st.expander(f"**Required Descriptors for {model['title']} ({model['features']} total)**", expanded=True): # Expanded=True to clearly show the change
         st.markdown(f"""
             <p style="margin-bottom: 24px;">Your input dataset must include the following **{model['features']}** molecular descriptor columns and a **SMILES** column for compound identification.</p>
         """, unsafe_allow_html=True)
         
-        # Descriptor Pills
+        # Descriptor Pills - NOW USING DYNAMIC DESCRIPTORS
         descriptors = ["SMILES (Required)"] + model['descriptors']
         descriptor_html = "".join([f'<span class="descriptor-pill">{d}</span>' for d in descriptors])
         st.markdown(f'<div style="max-height: 250px; overflow-y: auto; padding-right: 15px; margin-bottom: 20px;">{descriptor_html}</div>', unsafe_allow_html=True)
