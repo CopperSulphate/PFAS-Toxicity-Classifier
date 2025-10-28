@@ -11,7 +11,7 @@ import os
 
 st.set_page_config(
     page_title="PFAS Tox Classifier",
-    page_icon="Bubble",
+    page_icon="🫧",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -24,7 +24,7 @@ MODELS = {
         "icon": "Test Tube",  # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "AID-1030.xlsx",
+        "file": "AID- 1030.xlsx",
         "descriptors": None,
         "features": None,
     },
@@ -34,7 +34,7 @@ MODELS = {
         "icon": "Lungs",  # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "AID-504444.xlsx",
+        "file": "AID- 504444.xlsx",
         "descriptors": None,
         "features": None,
     },
@@ -44,7 +44,7 @@ MODELS = {
         "icon": "DNA",  # DNA/Cell for Cancer
         "color": "#FF9500",
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "AID-588855.xlsx",
+        "file": "AID- 588855.xlsx",
         "descriptors": None,
         "features": None,
     },
