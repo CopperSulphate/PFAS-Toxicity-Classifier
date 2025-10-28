@@ -5,7 +5,7 @@ import base64
 import random
 import io
 import numpy as np
-import os  # <-- NEW: Import os for path checking
+import os # <-- Ensure this import is present
 
 # --- 1. CONFIGURATION AND INITIAL SETUP ---
 
@@ -25,7 +25,7 @@ MODELS = {
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "data/AID- 1030.xlsx", # <-- UPDATED PATH
+        "file": "data/AID-1030.xlsx", # <-- UPDATED PATH
     },
     "AID-504444": {
         "title": "Pulmonary Fibrosis",
@@ -33,7 +33,7 @@ MODELS = {
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "data/AID- 504444.xlsx", # <-- UPDATED PATH
+        "file": "data/AID-504444.xlsx", # <-- UPDATED PATH
     },
     "AID-588855": {
         "title": "Lung Cancer & Fibrosis",
@@ -41,25 +41,31 @@ MODELS = {
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "data/AID- 588855.xlsx", # <-- UPDATED PATH
+        "file": "data/AID-588855.xlsx", # <-- UPDATED PATH
     },
 }
 
-# --- Dynamic Descriptor Loading Function ---
+# --- Dynamic Descriptor Loading Function (ABSOLUTE PATH FIX) ---
 
 @st.cache_data(show_spinner="Loading model descriptor definitions from files...")
 def load_model_descriptors(model_key):
     """
-    Reads descriptor columns from the corresponding Excel file.
-    Assumption: 1st column (index 0) is Serial, Last column is Endpoint, columns in between (index 1 to -2) are Descriptors.
+    Reads descriptor columns from the corresponding Excel file using absolute path.
+    Assumption: Files are in the 'data/' folder relative to this script.
     """
-    file_path = MODELS[model_key]["file"]
+    file_name = MODELS[model_key]["file"]
+    
+    # Construct the absolute path based on the script's location
+    base_dir = os.path.dirname(__file__)
+    file_path = os.path.join(base_dir, file_name) # This should resolve the path correctly
+
     try:
         # Check if file exists first (robustness check)
         if not os.path.exists(file_path):
-             st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Check that the file is in the 'data/' folder.")
+             st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Verify the data/ folder structure in GitHub.")
              return [], 0
              
+        # Use pandas to read .xlsx
         df = pd.read_excel(file_path)
         
         all_cols = df.columns.tolist()
