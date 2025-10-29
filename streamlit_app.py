@@ -5,7 +5,7 @@ import base64
 import random
 import io
 import numpy as np
-import os # NEW: Import os for robust file path handling
+import os # <-- Ensure this import is present
 
 # --- 1. CONFIGURATION AND INITIAL SETUP ---
 
@@ -25,7 +25,7 @@ MODELS = {
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "data/AID-1030.xlsx", # Assuming files are in data/ folder
+        "file": "data/AID-1030.xlsx", # <-- UPDATED PATH
     },
     "AID-504444": {
         "title": "Pulmonary Fibrosis",
@@ -33,7 +33,7 @@ MODELS = {
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "data/AID-504444.xlsx", # Assuming files are in data/ folder
+        "file": "data/AID-504444.xlsx", # <-- UPDATED PATH
     },
     "AID-588855": {
         "title": "Lung Cancer & Fibrosis",
@@ -41,39 +41,44 @@ MODELS = {
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "data/AID-588855.xlsx", # Assuming files are in data/ folder
+        "file": "data/AID-588855.xlsx", # <-- UPDATED PATH
     },
 }
 
-# --- Dynamic Descriptor Loading Function ---
+# --- Dynamic Descriptor Loading Function (ABSOLUTE PATH FIX) ---
 
 @st.cache_data(show_spinner="Loading model descriptor definitions from files...")
 def load_model_descriptors(model_key):
     """
     Reads descriptor columns from the corresponding Excel file using absolute path.
-    Assumes: 1st column is Serial, Last column is Endpoint, columns in between are Descriptors.
+    Assumption: Files are in the 'data/' folder relative to this script.
     """
     file_name = MODELS[model_key]["file"]
     
     # Construct the absolute path based on the script's location
     base_dir = os.path.dirname(__file__)
-    file_path = os.path.join(base_dir, file_name)
+    file_path = os.path.join(base_dir, file_name) # This should resolve the path correctly
 
     try:
+        # Check if file exists first (robustness check)
         if not os.path.exists(file_path):
-             # Log the error but continue execution, returning empty lists
              st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Verify the data/ folder structure in GitHub.")
              return [], 0
              
+        # Use pandas to read .xlsx
         df = pd.read_excel(file_path)
         
         all_cols = df.columns.tolist()
         
+        # We need at least 3 columns: Serial, Descriptor, Endpoint
         if len(all_cols) < 3: 
+            st.warning(f"Warning: Model file '{file_path}' has insufficient columns. Descriptors list may be empty.")
             return [], 0
             
+        # Descriptors are all columns between index 0 and the last index (-1)
         descriptors = all_cols[1:-1]
         
+        # Clean descriptor names and ensure they are ready for validation
         descriptors = [col.strip() for col in descriptors if col and col.upper() != "SMILES"]
 
         return descriptors, len(descriptors)
@@ -94,8 +99,8 @@ TEMPLATE_COLUMNS = ["SMILES"] + MODELS[first_model_key]["descriptors"]
 
 # Check if descriptors were loaded successfully before populating template
 if not MODELS[first_model_key]["descriptors"]:
-    # Fallback to generic template if file loading failed (for display)
-    TEMPLATE_COLUMNS = ["SMILES", "Placeholder_1", "Placeholder_2", "..."] 
+    # Fallback to generic template if file loading failed
+    TEMPLATE_COLUMNS = ["SMILES", "Placeholder_1", "Placeholder_2"] 
 
 TEMPLATE_DATA = {
     "SMILES": [
@@ -114,6 +119,7 @@ TEMPLATE_DF = pd.DataFrame(TEMPLATE_DATA)
 # Initialize Session State
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = list(MODELS.keys())[0] # Default to the first one
+# ... (rest of session state initialization)
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
 if "input_data" not in st.session_state:
@@ -482,7 +488,7 @@ def render_model_selection():
         card_class = "model-card selected" if is_selected else "model-card"
         
         with cols[i]:
-            # 1. Render the HTML structure (Card header, description, and feature info)
+            # The HTML div acts as the target for the click, then triggers the hidden button
             st.markdown(f"""
             <div class="{card_class}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -498,20 +504,16 @@ def render_model_selection():
                     <p style="margin: 4px 0;">Features: <strong>{model['features']} Descriptors</strong></p>
                     <p style="margin: 4px 0;">Algorithm: <strong>{model['mech']}</strong></p>
                 </div>
+                
                 <div style="text-align: right; margin-top: 16px;">
+                    {st.button("Selected" if is_selected else "Select Model", 
+                               key=f"{key}_button", 
+                               on_click=select_model_card, 
+                               args=(key,), 
+                               type="primary" if is_selected else "secondary")}
+                </div>
+            </div>
             """, unsafe_allow_html=True)
-            
-            # 2. Render the Streamlit button widget separately (FIX for visible HTML/code)
-            st.button(
-                "Selected" if is_selected else "Select Model", 
-                key=f"{key}_button", 
-                on_click=select_model_card, 
-                args=(key,), 
-                type="primary" if is_selected else "secondary"
-            )
-
-            # 3. Close the final HTML div tag for the card body
-            st.markdown("</div></div>", unsafe_allow_html=True)
 
 # Component 3: Dynamic Descriptor Display (Expandable)
 def render_descriptor_display():
@@ -644,8 +646,7 @@ def render_prediction_button():
                 st.session_state.prediction_results = results_df
                 st.toast('Predictions successfully generated!', icon='🎉')
             except Exception as e:
-                # FIX: Ensure f-string is correctly terminated
-                st.error(f"Prediction Error: {e}") 
+                st.error(f"Prediction Error: {e}")
                 st.session_state.prediction_results = None
 
 # Component 7: Results Display
