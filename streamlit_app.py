@@ -5,7 +5,7 @@ import base64
 import random
 import io
 import numpy as np
-import os # Import os for robust file path handling
+import os # NEW: Import os for robust file path handling
 
 # --- 1. CONFIGURATION AND INITIAL SETUP ---
 
@@ -25,7 +25,7 @@ MODELS = {
         "icon": "🧪", # Test Tube for Inhibition
         "color": "#007AFF",
         "description": "Predicts inhibition of Aldehyde Dehydrogenase 1 Family Member A1 (ALDH1A1), a key enzyme in the AOP related to liver toxicity.",
-        "file": "data/AID-1030.xlsx", # Assuming files are now in data/ folder
+        "file": "data/AID-1030.xlsx", # Assuming files are in data/ folder
     },
     "AID-504444": {
         "title": "Pulmonary Fibrosis",
@@ -33,7 +33,7 @@ MODELS = {
         "icon": "🫁", # Lungs for Pulmonary
         "color": "#5E5CE6",
         "description": "Screens for potential for Pulmonary Fibrosis, critical in understanding respiratory effects of PFAS exposure.",
-        "file": "data/AID-504444.xlsx", # Assuming files are now in data/ folder
+        "file": "data/AID-504444.xlsx", # Assuming files are in data/ folder
     },
     "AID-588855": {
         "title": "Lung Cancer & Fibrosis",
@@ -41,7 +41,7 @@ MODELS = {
         "icon": "🧬", # DNA/Cell for Cancer
         "color": "#FF9500", # Use a vibrant orange for tertiary
         "description": "Predicts activity associated with a broader Lung Cancer and Fibrosis pathway endpoint.",
-        "file": "data/AID-588855.xlsx", # Assuming files are now in data/ folder
+        "file": "data/AID-588855.xlsx", # Assuming files are in data/ folder
     },
 }
 
@@ -51,6 +51,7 @@ MODELS = {
 def load_model_descriptors(model_key):
     """
     Reads descriptor columns from the corresponding Excel file using absolute path.
+    Assumes: 1st column is Serial, Last column is Endpoint, columns in between are Descriptors.
     """
     file_name = MODELS[model_key]["file"]
     
@@ -60,7 +61,8 @@ def load_model_descriptors(model_key):
 
     try:
         if not os.path.exists(file_path):
-             # This error is critical for initial loading, but the app should continue with generic descriptors if the error is caught outside the main flow
+             # Log the error but continue execution, returning empty lists
+             st.error(f"FATAL ERROR: Descriptor file '{file_path}' not found. Verify the data/ folder structure in GitHub.")
              return [], 0
              
         df = pd.read_excel(file_path)
@@ -77,7 +79,7 @@ def load_model_descriptors(model_key):
         return descriptors, len(descriptors)
         
     except Exception as e:
-        # st.error(f"FATAL ERROR: Could not read descriptors from '{file_path}'. Error: {e}") # Suppress to avoid display issues if st.cache_data handles it
+        st.error(f"FATAL ERROR: Could not read descriptors from '{file_path}'. Error: {e}")
         return [], 0
 
 # --- Update MODELS dictionary with dynamic values ---
@@ -93,7 +95,7 @@ TEMPLATE_COLUMNS = ["SMILES"] + MODELS[first_model_key]["descriptors"]
 # Check if descriptors were loaded successfully before populating template
 if not MODELS[first_model_key]["descriptors"]:
     # Fallback to generic template if file loading failed (for display)
-    TEMPLATE_COLUMNS = ["SMILES", "Descriptor_1", "Descriptor_2", "..."] 
+    TEMPLATE_COLUMNS = ["SMILES", "Placeholder_1", "Placeholder_2", "..."] 
 
 TEMPLATE_DATA = {
     "SMILES": [
@@ -481,7 +483,6 @@ def render_model_selection():
         
         with cols[i]:
             # 1. Render the HTML structure (Card header, description, and feature info)
-            # This HTML block contains everything *except* the final Streamlit button call.
             st.markdown(f"""
             <div class="{card_class}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -500,7 +501,7 @@ def render_model_selection():
                 <div style="text-align: right; margin-top: 16px;">
             """, unsafe_allow_html=True)
             
-            # 2. Render the Streamlit button widget separately
+            # 2. Render the Streamlit button widget separately (FIX for visible HTML/code)
             st.button(
                 "Selected" if is_selected else "Select Model", 
                 key=f"{key}_button", 
@@ -643,4 +644,150 @@ def render_prediction_button():
                 st.session_state.prediction_results = results_df
                 st.toast('Predictions successfully generated!', icon='🎉')
             except Exception as e:
-                st.error(f"Prediction Error
+                # FIX: Ensure f-string is correctly terminated
+                st.error(f"Prediction Error: {e}") 
+                st.session_state.prediction_results = None
+
+# Component 7: Results Display
+def render_results_display():
+    """Renders the summary cards and the detailed results table."""
+    if st.session_state.prediction_results is None:
+        return
+
+    df_results = st.session_state.prediction_results
+    total = len(df_results)
+    active_count = df_results['Prediction'].sum()
+    inactive_count = total - active_count
+
+    st.markdown("---")
+    st.markdown("## Prediction Results")
+    
+    # Summary Cards
+    col_a, col_b, col_c = st.columns(3)
+
+    with col_a:
+        st.metric(
+            label="Total Compounds", 
+            value=total,
+            delta="100%",
+            delta_color="off"
+        )
+    with col_b:
+        # Custom Metric Card for Active (1)
+        st.markdown(f"""
+        <div data-testid="stMetric" style="border-left: 4px solid #34C759;">
+            <div style="font-size: 14px; color: #6E6E73; font-weight: 500;">Active (1)</div>
+            <div style="font-size: 32px; font-weight: 600; color: #34C759; margin: 4px 0;">{active_count}</div>
+            <div style="font-size: 14px; color: #34C759;">{active_count/total:.1%}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_c:
+        # Custom Metric Card for Inactive (0)
+        st.markdown(f"""
+        <div data-testid="stMetric" style="border-left: 4px solid #FF3B30;">
+            <div style="font-size: 14px; color: #6E6E73; font-weight: 500;">Inactive (0)</div>
+            <div style="font-size: 32px; font-weight: 600; color: #FF3B30; margin: 4px 0;">{inactive_count}</div>
+            <div style="font-size: 14px; color: #FF3B30;">{inactive_count/total:.1%}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown("<div style='margin-bottom: 32px;'></div>", unsafe_allow_html=True)
+
+    # Detailed Results Table
+    st.markdown("### Detailed Prediction Table")
+    
+    # Custom display for Prediction column
+    def format_prediction_label(val):
+        color = '#34C759' if val == 'Active' else '#FF3B30'
+        icon = '●' if val == 'Active' else '○'
+        return f'<span style="color:{color}; font-weight: 600;">{icon} {val}</span>'
+
+    # Filter columns for cleaner display: #, SMILES, Prediction
+    display_df = df_results[['SMILES', 'Prediction_Label']].copy()
+    display_df.rename(columns={'Prediction_Label': 'Prediction'}, inplace=True)
+    
+    # Add Index for display
+    display_df.insert(0, '#', range(1, 1 + len(display_df)))
+
+    # Apply custom HTML formatting for the prediction column
+    # Note: Streamlit's native st.dataframe is typically better but for a custom look, we use HTML rendering here.
+    st.markdown(
+        display_df.head(20).style.format({'Prediction': format_prediction_label}).to_html(index=False), 
+        unsafe_allow_html=True
+    )
+    if len(display_df) > 20:
+        st.markdown(f"<p style='text-align: center; color: #6E6E73; margin-top: 15px;'>... showing 20 of {len(display_df)} results.</p>", unsafe_allow_html=True)
+
+# Component 8: Download Section
+def render_download_section():
+    """Renders the section to export the results."""
+    if st.session_state.prediction_results is None:
+        return
+    
+    df_results = st.session_state.prediction_results
+    st.markdown("---")
+    st.markdown("## Export Results")
+    st.markdown("<p>Choose your preferred format to download the complete results dataset, including the input data and the new **Prediction** column.</p>", unsafe_allow_html=True)
+
+    
+    # Filename based on selected model
+    filename_base = f"PFAS_QSTR_{st.session_state.selected_model}_Results"
+    
+    # Create download links using the helper function (uses HTML buttons)
+    excel_link = get_table_download_link(df_results, f"{filename_base}.xlsx", "📊 Excel (.xlsx)")
+    csv_link = get_table_download_link(df_results, f"{filename_base}.csv", "📄 CSV (.csv)")
+    txt_link = get_table_download_link(df_results, f"{filename_base}.txt", "📝 TXT (Tab-Delimited)")
+    
+    st.markdown(f"""
+        <div style="margin-top: 24px;">
+            {excel_link}
+            {csv_link}
+            {txt_link}
+        </div>
+    """, unsafe_allow_html=True)
+
+
+# --- 5. MAIN APPLICATION EXECUTION ---
+
+def main():
+    apply_apple_style() # Apply the custom CSS at the very start
+    
+    # Fixed Header/Logo Section
+    st.markdown(
+        f'<div style="display: flex; align-items: center; padding-top: 18px;">'
+        f'<h3 style="color: #007AFF; margin-right: 10px; margin-top: 0; font-weight: 700;">🫧</h3>'
+        f'<h3 style="margin: 0; font-weight: 500;">PFAS Toxicity Classifier</h3>'
+        f'</div>', 
+        unsafe_allow_html=True
+    )
+    
+    # Conditional Hero Section
+    if st.session_state.show_hero:
+        render_hero_section()
+    else:
+        # Main Steps
+        st.markdown("<div id='main_content'>", unsafe_allow_html=True) # Anchor for smooth scrolling (not fully implemented in native Streamlit, but good practice)
+        
+        # Step 1
+        render_model_selection()
+        
+        # Step 2
+        render_descriptor_display()
+        
+        # Step 3 & Data Preview
+        render_upload_and_preview()
+        
+        # Step 4 (Prediction)
+        render_prediction_button()
+        
+        # Step 5 (Results)
+        render_results_display()
+        
+        # Step 6 (Download)
+        render_download_section()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+if __name__ == "__main__":
+    main()
